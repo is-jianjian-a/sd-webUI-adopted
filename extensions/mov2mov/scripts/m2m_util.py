@@ -2,7 +2,6 @@ import os.path
 
 import cv2
 import numpy
-
 '''
 def video_to_images(frames, video_path, out_path):
     cap = cv2.VideoCapture(video_path)
@@ -33,6 +32,7 @@ def video_to_images(frames, video_path, out_path):
     return frames, count
 '''
 
+
 def get_mov_all_images(file, frames):
     if file is None:
         return None
@@ -61,6 +61,12 @@ def get_mov_all_images(file, frames):
         fs += 1
     cap.release()
     return image_list
+
+
+def images_saving(images, out_path):
+    for index, image in enumerate(images):
+        image_path = f"{out_path}_{index:0>4}.jpg"
+        cv2.imwrite(image_path, cv2.cvtColor(numpy.asarray(image), cv2.COLOR_RGB2BGR))
 
 
 def images_to_video(images, frames, mode, w, h, out_path):

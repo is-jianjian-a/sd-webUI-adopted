@@ -10,6 +10,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from packaging import version
 
 import logging
+
 logging.getLogger("xformers").addFilter(lambda record: 'A matching Triton is not available' not in record.getMessage())
 
 from modules import import_hook, errors, extra_networks, ui_extra_networks_checkpoints
@@ -44,7 +45,6 @@ import modules.ui
 from modules import modelloader
 from modules.shared import cmd_opts
 import modules.hypernetworks.hypernetwork
-
 
 if cmd_opts.server_name:
     server_name = cmd_opts.server_name
@@ -215,17 +215,15 @@ def webui():
                 for line in file.readlines():
                     gradio_auth_creds += [x.strip() for x in line.split(',')]
 
-        app, local_url, share_url = shared.demo.launch(
-            share=cmd_opts.share,
-            server_name=server_name,
-            server_port=cmd_opts.port,
-            ssl_keyfile=cmd_opts.tls_keyfile,
-            ssl_certfile=cmd_opts.tls_certfile,
-            debug=cmd_opts.gradio_debug,
-            auth=[tuple(cred.split(':')) for cred in gradio_auth_creds] if gradio_auth_creds else None,
-            inbrowser=cmd_opts.autolaunch,
-            prevent_thread_lock=True
-        )
+        app, local_url, share_url = shared.demo.launch(share=cmd_opts.share,
+                                                       server_name=server_name,
+                                                       server_port=cmd_opts.port,
+                                                       ssl_keyfile=cmd_opts.tls_keyfile,
+                                                       ssl_certfile=cmd_opts.tls_certfile,
+                                                       debug=cmd_opts.gradio_debug,
+                                                       auth=[tuple(cred.split(':')) for cred in gradio_auth_creds] if gradio_auth_creds else None,
+                                                       inbrowser=cmd_opts.autolaunch,
+                                                       prevent_thread_lock=True)
         # after initial launch, disable --autolaunch for subsequent restarts
         cmd_opts.autolaunch = False
 

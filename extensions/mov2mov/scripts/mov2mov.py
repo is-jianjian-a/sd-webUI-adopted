@@ -2,6 +2,7 @@ import os.path
 import time
 
 import cv2
+
 import modules.images
 import modules.scripts as scripts
 from modules import processing, sd_samplers, shared

@@ -160,7 +160,7 @@ def on_ui_tabs():
                         with FormRow():
                             with gr.Column(elem_id=f"{id_part}_column_size", scale=4):
                                 width = gr.Slider(minimum=64, maximum=2048, step=8, label="Width", value=512, elem_id=f"{id_part}_width")
-                                height = gr.Slider(minimum=64, maximum=2048, step=8, label="Height", value=512, elem_id=f"{id_part}_height")
+                                height = gr.Slider(minimum=64, maximum=2048, step=8, label="Height", value=768, elem_id=f"{id_part}_height")
 
                             res_switch_btn = ToolButton(value=switch_values_symbol, elem_id=f"{id_part}_res_switch_btn")
                             if opts.dimensions_and_batch_together:
@@ -183,11 +183,11 @@ def on_ui_tabs():
                             with FormRow():
                                 cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=7.0, elem_id=f"{id_part}_cfg_scale")
                                 image_cfg_scale = gr.Slider(minimum=0, maximum=3.0, step=0.05, label='Image CFG Scale', value=1.5, elem_id=f"{id_part}_image_cfg_scale", visible=shared.sd_model and shared.sd_model.cond_stage_key == "edit")
-                            denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.75, elem_id=f"{id_part}_denoising_strength")
+                            denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.55, elem_id=f"{id_part}_denoising_strength")
                             movie_frames = gr.Slider(minimum=10, maximum=60, step=1, label='Movie Frames', elem_id=f'{id_part}_movie_frames', value=30)
 
                     elif category == "seed":
-                        max_frames = gr.Number(label='Max Frames', value=-1, elem_id=f'{id_part}_max_frames')
+                        max_frames = gr.Number(label='Max Frames', value=300, elem_id=f'{id_part}_max_frames')
                         seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox = create_seed_inputs('mov2mov')
 
                         seed.style(container=False)

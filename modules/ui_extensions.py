@@ -156,7 +156,7 @@ def install_extension_from_url(dirname, url):
                 shutil.move(tmpdir, target_dir)
             else:
                 # Something else, not enough free space, permissions, etc.  rethrow it so that it gets handled.
-                raise(err)
+                raise (err)
 
         import launch
         launch.run_extension_installer(target_dir)
@@ -304,13 +304,19 @@ def create_ui():
             with gr.TabItem("Available"):
                 with gr.Row():
                     refresh_available_extensions_button = gr.Button(value="Load from:", variant="primary")
-                    available_extensions_index = gr.Text(value="https://raw.githubusercontent.com/wiki/AUTOMATIC1111/stable-diffusion-webui/Extensions-index.md", label="Extension index URL").style(container=False)
+                    available_extensions_index = gr.Text(value="https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-webui-extensions/master/index.json", label="Extension index URL").style(container=False)
                     extension_to_install = gr.Text(elem_id="extension_to_install", visible=False)
                     install_extension_button = gr.Button(elem_id="install_extension_button", visible=False)
 
                 with gr.Row():
                     hide_tags = gr.CheckboxGroup(value=["ads", "localization", "installed"], label="Hide extensions with tags", choices=["script", "ads", "localization", "installed"])
-                    sort_column = gr.Radio(value="newest first", label="Order", choices=["newest first", "oldest first", "a-z", "z-a", "internal order", ], type="index")
+                    sort_column = gr.Radio(value="newest first", label="Order", choices=[
+                        "newest first",
+                        "oldest first",
+                        "a-z",
+                        "z-a",
+                        "internal order",
+                    ], type="index")
 
                 install_result = gr.HTML()
                 available_extensions_table = gr.HTML()
@@ -327,17 +333,9 @@ def create_ui():
                     outputs=[available_extensions_table, extensions_table, install_result],
                 )
 
-                hide_tags.change(
-                    fn=modules.ui.wrap_gradio_call(refresh_available_extensions_for_tags, extra_outputs=[gr.update()]),
-                    inputs=[hide_tags, sort_column],
-                    outputs=[available_extensions_table, install_result]
-                )
+                hide_tags.change(fn=modules.ui.wrap_gradio_call(refresh_available_extensions_for_tags, extra_outputs=[gr.update()]), inputs=[hide_tags, sort_column], outputs=[available_extensions_table, install_result])
 
-                sort_column.change(
-                    fn=modules.ui.wrap_gradio_call(refresh_available_extensions_for_tags, extra_outputs=[gr.update()]),
-                    inputs=[hide_tags, sort_column],
-                    outputs=[available_extensions_table, install_result]
-                )
+                sort_column.change(fn=modules.ui.wrap_gradio_call(refresh_available_extensions_for_tags, extra_outputs=[gr.update()]), inputs=[hide_tags, sort_column], outputs=[available_extensions_table, install_result])
 
             with gr.TabItem("Install from URL"):
                 install_url = gr.Text(label="URL for extension's git repository")

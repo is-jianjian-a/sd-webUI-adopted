@@ -12,6 +12,7 @@ AlwaysVisible = object()
 
 
 class PostprocessImageArgs:
+
     def __init__(self, image):
         self.image = image
 
@@ -24,13 +25,17 @@ class Script:
 
     is_txt2img = False
     is_img2img = False
-
     """A gr.Group component that has all script's UI inside it"""
     group = None
 
     infotext_fields = None
     """if set in ui(), this is a list of pairs of gradio component + text; the text will be used when
     parsing infotext to set the value for the component; see ui.py's txt2img_paste_fields for an example
+    """
+
+    paste_field_names = None
+    """if set in ui(), this is a list of names of infotext fields; the fields will be sent through the
+    various "Send to <X>" buttons when clicked
     """
 
     def title(self):
@@ -76,6 +81,20 @@ class Script:
         This function is called before processing begins for AlwaysVisible scripts.
         You can modify the processing object (p) here, inject hooks, etc.
         args contains all values returned by components from ui()
+        """
+
+        pass
+
+    def before_process_batch(self, p, *args, **kwargs):
+        """
+        Called before extra networks are parsed from the prompt, so you can add
+        new extra network keywords to the prompt with this callback.
+
+        **kwargs will have those items:
+          - batch_number - index of current batch, from 0 to number of batches-1
+          - prompts - list of prompts for current batch; you can change contents of this list but changing the number of entries will likely break things
+          - seeds - list of seeds for current batch
+          - subseeds - list of subseeds for current batch
         """
 
         pass
@@ -250,12 +269,14 @@ def wrap_call(func, filename, funcname, *args, default=None, **kwargs):
 
 
 class ScriptRunner:
+
     def __init__(self):
         self.scripts = []
         self.selectable_scripts = []
         self.alwayson_scripts = []
         self.titles = []
         self.infotext_fields = []
+        self.paste_field_names = []
 
     def initialize_scripts(self, is_img2img):
         from modules import scripts_auto_postprocessing
@@ -304,6 +325,9 @@ class ScriptRunner:
             if script.infotext_fields is not None:
                 self.infotext_fields += script.infotext_fields
 
+            if script.paste_field_names is not None:
+                self.paste_field_names += script.paste_field_names
+
             inputs += controls
             inputs_alwayson += [script.alwayson for _ in controls]
             script.args_to = len(inputs)
@@ -324,7 +348,7 @@ class ScriptRunner:
             script.group = group
 
         def select_script(script_index):
-            selected_script = self.selectable_scripts[script_index - 1] if script_index>0 else None
+            selected_script = self.selectable_scripts[script_index - 1] if script_index > 0 else None
 
             return [gr.update(visible=selected_script == s) for s in self.selectable_scripts]
 
@@ -339,13 +363,10 @@ class ScriptRunner:
 
         dropdown.init_field = init_field
 
-        dropdown.change(
-            fn=select_script,
-            inputs=[dropdown],
-            outputs=[script.group for script in self.selectable_scripts]
-        )
+        dropdown.change(fn=select_script, inputs=[dropdown], outputs=[script.group for script in self.selectable_scripts])
 
         self.script_load_ctr = 0
+
         def onload_script_visibility(params):
             title = params.get('Script', None)
             if title:
@@ -356,8 +377,8 @@ class ScriptRunner:
             else:
                 return gr.update(visible=False)
 
-        self.infotext_fields.append( (dropdown, lambda x: gr.update(value=x.get('Script', 'None'))) )
-        self.infotext_fields.extend( [(script.group, onload_script_visibility) for script in self.selectable_scripts] )
+        self.infotext_fields.append((dropdown, lambda x: gr.update(value=x.get('Script', 'None'))))
+        self.infotext_fields.extend([(script.group, onload_script_visibility) for script in self.selectable_scripts])
 
         return inputs
 
@@ -367,7 +388,7 @@ class ScriptRunner:
         if script_index == 0:
             return None
 
-        script = self.selectable_scripts[script_index-1]
+        script = self.selectable_scripts[script_index - 1]
 
         if script is None:
             return None
@@ -386,6 +407,15 @@ class ScriptRunner:
                 script.process(p, *script_args)
             except Exception:
                 print(f"Error running process: {script.filename}", file=sys.stderr)
+                print(traceback.format_exc(), file=sys.stderr)
+
+    def before_process_batch(self, p, **kwargs):
+        for script in self.alwayson_scripts:
+            try:
+                script_args = p.script_args[script.args_from:script.args_to]
+                script.before_process_batch(p, *script_args, **kwargs)
+            except Exception:
+                print(f"Error running before_process_batch: {script.filename}", file=sys.stderr)
                 print(traceback.format_exc(), file=sys.stderr)
 
     def process_batch(self, p, **kwargs):

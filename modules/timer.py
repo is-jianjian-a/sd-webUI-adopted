@@ -2,6 +2,7 @@ import time
 
 
 class Timer:
+
     def __init__(self):
         self.start = time.time()
         self.records = {}
@@ -33,3 +34,6 @@ class Timer:
         res += ")"
 
         return res
+
+    def reset(self):
+        self.__init__()

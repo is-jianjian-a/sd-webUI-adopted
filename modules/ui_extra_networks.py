@@ -23,6 +23,7 @@ def register_page(page):
 
 
 def add_pages_to_demo(app):
+
     def fetch_file(filename: str = ""):
         from starlette.responses import FileResponse
 
@@ -40,6 +41,7 @@ def add_pages_to_demo(app):
 
 
 class ExtraNetworksPage:
+
     def __init__(self, title):
         self.title = title
         self.name = title.lower()
@@ -85,11 +87,13 @@ class ExtraNetworksPage:
         if subdirs:
             subdirs = {"": 1, **subdirs}
 
-        subdirs_html = "".join([f"""
+        subdirs_html = "".join([
+            f"""
 <button class='gr-button gr-button-lg gr-button-secondary{" search-all" if subdir=="" else ""}' onclick='extraNetworksSearchButton("{tabname}_extra_tabs", event)'>
 {html.escape(subdir if subdir!="" else "all")}
 </button>
-""" for subdir in subdirs])
+""" for subdir in subdirs
+        ])
 
         for item in self.list_items():
             items_html += self.create_html_for_item(item, tabname)
@@ -130,6 +134,7 @@ class ExtraNetworksPage:
             "tabname": json.dumps(tabname),
             "local_preview": json.dumps(item["local_preview"]),
             "name": item["name"],
+            "description": (item.get("description") or ""),
             "card_clicked": onclick,
             "save_card_preview": '"' + html.escape(f"""return saveCardPreview(event, {json.dumps(tabname)}, {json.dumps(item["local_preview"])})""") + '"',
             "search_term": item.get("search_term", ""),
@@ -137,12 +142,42 @@ class ExtraNetworksPage:
 
         return self.card_page.format(**args)
 
+    def find_preview(self, path):
+        """
+        Find a preview PNG for a given path (without extension) and call link_preview on it.
+        """
+
+        preview_extensions = ["png", "jpg", "webp"]
+        if shared.opts.samples_format not in preview_extensions:
+            preview_extensions.append(shared.opts.samples_format)
+
+        potential_files = sum([[path + "." + ext, path + ".preview." + ext] for ext in preview_extensions], [])
+
+        for file in potential_files:
+            if os.path.isfile(file):
+                return self.link_preview(file)
+
+        return None
+
+    def find_description(self, path):
+        """
+        Find and read a description file for a given path (without extension).
+        """
+        for file in [f"{path}.txt", f"{path}.description.txt"]:
+            try:
+                with open(file, "r", encoding="utf-8", errors="replace") as f:
+                    return f.read()
+            except OSError:
+                pass
+        return None
+
 
 def intialize():
     extra_pages.clear()
 
 
 class ExtraNetworksUi:
+
     def __init__(self):
         self.pages = None
         self.stored_extra_pages = None
@@ -175,18 +210,17 @@ def create_ui(container, button, tabname):
     ui.stored_extra_pages = pages_in_preferred_order(extra_pages.copy())
     ui.tabname = tabname
 
-    with gr.Tabs(elem_id=tabname+"_extra_tabs") as tabs:
+    with gr.Tabs(elem_id=tabname + "_extra_tabs") as tabs:
         for page in ui.stored_extra_pages:
             with gr.Tab(page.title):
                 page_elem = gr.HTML(page.create_html(ui.tabname))
                 ui.pages.append(page_elem)
 
-    filter = gr.Textbox('', show_label=False, elem_id=tabname+"_extra_search", placeholder="Search...", visible=False)
-    button_refresh = gr.Button('Refresh', elem_id=tabname+"_extra_refresh")
-    button_close = gr.Button('Close', elem_id=tabname+"_extra_close")
+    filter = gr.Textbox('', show_label=False, elem_id=tabname + "_extra_search", placeholder="Search...", visible=False)
+    button_refresh = gr.Button('Refresh', elem_id=tabname + "_extra_refresh")
 
-    ui.button_save_preview = gr.Button('Save preview', elem_id=tabname+"_save_preview", visible=False)
-    ui.preview_target_filename = gr.Textbox('Preview save filename', elem_id=tabname+"_preview_filename", visible=False)
+    ui.button_save_preview = gr.Button('Save preview', elem_id=tabname + "_save_preview", visible=False)
+    ui.preview_target_filename = gr.Textbox('Preview save filename', elem_id=tabname + "_preview_filename", visible=False)
 
     def toggle_visibility(is_visible):
         is_visible = not is_visible
@@ -194,7 +228,6 @@ def create_ui(container, button, tabname):
 
     state_visible = gr.State(value=False)
     button.click(fn=toggle_visibility, inputs=[state_visible], outputs=[state_visible, container])
-    button_close.click(fn=toggle_visibility, inputs=[state_visible], outputs=[state_visible, container])
 
     def refresh():
         res = []
@@ -218,6 +251,7 @@ def path_is_parent(parent_path, child_path):
 
 
 def setup_ui(ui, gallery):
+
     def save_preview(index, images, filename):
         if len(images) == 0:
             print("There is no image in gallery to save as a preview.")
@@ -242,10 +276,4 @@ def setup_ui(ui, gallery):
 
         return [page.create_html(ui.tabname) for page in ui.stored_extra_pages]
 
-    ui.button_save_preview.click(
-        fn=save_preview,
-        _js="function(x, y, z){return [selected_gallery_index(), y, z]}",
-        inputs=[ui.preview_target_filename, gallery, ui.preview_target_filename],
-        outputs=[*ui.pages]
-    )
-
+    ui.button_save_preview.click(fn=save_preview, _js="function(x, y, z){return [selected_gallery_index(), y, z]}", inputs=[ui.preview_target_filename, gallery, ui.preview_target_filename], outputs=[*ui.pages])

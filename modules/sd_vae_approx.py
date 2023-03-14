@@ -8,6 +8,7 @@ sd_vae_approx_model = None
 
 
 class VAEApprox(nn.Module):
+
     def __init__(self):
         super(VAEApprox, self).__init__()
         self.conv1 = nn.Conv2d(4, 8, (7, 7))
@@ -24,7 +25,16 @@ class VAEApprox(nn.Module):
         x = nn.functional.interpolate(x, (x.shape[2] * 2, x.shape[3] * 2))
         x = nn.functional.pad(x, (extra, extra, extra, extra))
 
-        for layer in [self.conv1, self.conv2, self.conv3, self.conv4, self.conv5, self.conv6, self.conv7, self.conv8, ]:
+        for layer in [
+                self.conv1,
+                self.conv2,
+                self.conv3,
+                self.conv4,
+                self.conv5,
+                self.conv6,
+                self.conv7,
+                self.conv8,
+        ]:
             x = layer(x)
             x = nn.functional.leaky_relu(x, 0.1)
 
@@ -35,8 +45,11 @@ def model():
     global sd_vae_approx_model
 
     if sd_vae_approx_model is None:
+        model_path = os.path.join(paths.models_path, "VAE-approx", "model.pt")
         sd_vae_approx_model = VAEApprox()
-        sd_vae_approx_model.load_state_dict(torch.load(os.path.join(paths.models_path, "VAE-approx", "model.pt"), map_location='cpu' if devices.device.type != 'cuda' else None))
+        if not os.path.exists(model_path):
+            model_path = os.path.join(paths.script_path, "models", "VAE-approx", "model.pt")
+        sd_vae_approx_model.load_state_dict(torch.load(model_path, map_location='cpu' if devices.device.type != 'cuda' else None))
         sd_vae_approx_model.eval()
         sd_vae_approx_model.to(devices.device, devices.dtype)
 

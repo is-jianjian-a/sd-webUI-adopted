@@ -14,6 +14,7 @@ def report_exception(c, job):
 
 
 class ImageSaveParams:
+
     def __init__(self, image, p, filename, pnginfo):
         self.image = image
         """the PIL image itself"""
@@ -29,24 +30,32 @@ class ImageSaveParams:
 
 
 class CFGDenoiserParams:
-    def __init__(self, x, image_cond, sigma, sampling_step, total_sampling_steps):
+
+    def __init__(self, x, image_cond, sigma, sampling_step, total_sampling_steps, text_cond, text_uncond):
         self.x = x
         """Latent image representation in the process of being denoised"""
-        
+
         self.image_cond = image_cond
         """Conditioning image"""
-        
+
         self.sigma = sigma
         """Current sigma noise step value"""
-        
+
         self.sampling_step = sampling_step
         """Current Sampling step number"""
-        
+
         self.total_sampling_steps = total_sampling_steps
         """Total number of sampling steps planned"""
 
+        self.text_cond = text_cond
+        """ Encoder hidden states of text conditioning from prompt"""
+
+        self.text_uncond = text_uncond
+        """ Encoder hidden states of text conditioning from negative prompt"""
+
 
 class CFGDenoisedParams:
+
     def __init__(self, x, sampling_step, total_sampling_steps):
         self.x = x
         """Latent image representation in the process of being denoised"""
@@ -59,11 +68,13 @@ class CFGDenoisedParams:
 
 
 class UiTrainTabParams:
+
     def __init__(self, txt2img_preview_params):
         self.txt2img_preview_params = txt2img_preview_params
 
 
 class ImageGridLoopParams:
+
     def __init__(self, imgs, cols, rows):
         self.imgs = imgs
         self.cols = cols
@@ -225,7 +236,7 @@ def add_callback(callbacks, fun):
 
     callbacks.append(ScriptCallback(filename, fun))
 
-    
+
 def remove_current_script_callbacks():
     stack = [x for x in inspect.stack() if x.filename != __file__]
     filename = stack[0].filename if len(stack) > 0 else 'unknown file'

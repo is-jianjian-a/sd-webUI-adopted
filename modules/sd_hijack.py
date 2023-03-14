@@ -34,14 +34,26 @@ def apply_optimizations():
 
     ldm.modules.diffusionmodules.model.nonlinearity = silu
     ldm.modules.diffusionmodules.openaimodel.th = sd_hijack_unet.th
-    
+
     optimization_method = None
+
+    can_use_sdp = hasattr(torch.nn.functional, "scaled_dot_product_attention") and callable(getattr(torch.nn.functional, "scaled_dot_product_attention"))  # not everyone has torch 2.x to use sdp
 
     if cmd_opts.force_enable_xformers or (cmd_opts.xformers and shared.xformers_available and torch.version.cuda and (6, 0) <= torch.cuda.get_device_capability(shared.device) <= (9, 0)):
         print("Applying xformers cross attention optimization.")
         ldm.modules.attention.CrossAttention.forward = sd_hijack_optimizations.xformers_attention_forward
         ldm.modules.diffusionmodules.model.AttnBlock.forward = sd_hijack_optimizations.xformers_attnblock_forward
         optimization_method = 'xformers'
+    elif cmd_opts.opt_sdp_no_mem_attention and can_use_sdp:
+        print("Applying scaled dot product cross attention optimization (without memory efficient attention).")
+        ldm.modules.attention.CrossAttention.forward = sd_hijack_optimizations.scaled_dot_product_no_mem_attention_forward
+        ldm.modules.diffusionmodules.model.AttnBlock.forward = sd_hijack_optimizations.sdp_no_mem_attnblock_forward
+        optimization_method = 'sdp-no-mem'
+    elif cmd_opts.opt_sdp_attention and can_use_sdp:
+        print("Applying scaled dot product cross attention optimization.")
+        ldm.modules.attention.CrossAttention.forward = sd_hijack_optimizations.scaled_dot_product_attention_forward
+        ldm.modules.diffusionmodules.model.AttnBlock.forward = sd_hijack_optimizations.sdp_attnblock_forward
+        optimization_method = 'sdp'
     elif cmd_opts.opt_sub_quad_attention:
         print("Applying sub-quadratic cross attention optimization.")
         ldm.modules.attention.CrossAttention.forward = sd_hijack_optimizations.sub_quad_attention_forward
@@ -80,20 +92,21 @@ def fix_checkpoint():
 def weighted_loss(sd_model, pred, target, mean=True):
     #Calculate the weight normally, but ignore the mean
     loss = sd_model._old_get_loss(pred, target, mean=False)
-    
+
     #Check if we have weights available
     weight = getattr(sd_model, '_custom_loss_weight', None)
     if weight is not None:
         loss *= weight
-    
+
     #Return the loss, as mean if specified
     return loss.mean() if mean else loss
+
 
 def weighted_forward(sd_model, x, c, w, *args, **kwargs):
     try:
         #Temporarily append weights to a place accessible during loss calc
         sd_model._custom_loss_weight = w
-        
+
         #Replace 'get_loss' with a weight-aware one. Otherwise we need to reimplement 'forward' completely
         #Keep 'get_loss', but don't overwrite the previous old_get_loss if it's already set
         if not hasattr(sd_model, '_old_get_loss'):
@@ -108,15 +121,17 @@ def weighted_forward(sd_model, x, c, w, *args, **kwargs):
             del sd_model._custom_loss_weight
         except AttributeError as e:
             pass
-            
+
         #If we have an old loss function, reset the loss function to the original one
         if hasattr(sd_model, '_old_get_loss'):
             sd_model.get_loss = sd_model._old_get_loss
             del sd_model._old_get_loss
 
+
 def apply_weighted_forward(sd_model):
     #Add new function 'weighted_forward' that can be called to calc weighted loss
     sd_model.weighted_forward = MethodType(weighted_forward, sd_model)
+
 
 def undo_weighted_forward(sd_model):
     try:
@@ -172,7 +187,7 @@ class StableDiffusionModelHijack:
 
     def undo_hijack(self, m):
         if type(m.cond_stage_model) == xlmr.BertSeriesModelWithTransformation:
-            m.cond_stage_model = m.cond_stage_model.wrapped 
+            m.cond_stage_model = m.cond_stage_model.wrapped
 
         elif type(m.cond_stage_model) == sd_hijack_clip.FrozenCLIPEmbedderWithCustomWords:
             m.cond_stage_model = m.cond_stage_model.wrapped
@@ -210,6 +225,7 @@ class StableDiffusionModelHijack:
 
 
 class EmbeddingsWithFixes(torch.nn.Module):
+
     def __init__(self, wrapped, embeddings):
         super().__init__()
         self.wrapped = wrapped

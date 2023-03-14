@@ -4,18 +4,18 @@ let lastHeadImg = null;
 
 notificationButton = null
 
-onUiUpdate(function(){
-    if(notificationButton == null){
+onUiUpdate(function () {
+    if (notificationButton == null) {
         notificationButton = gradioApp().getElementById('request_notifications')
 
-        if(notificationButton != null){
+        if (notificationButton != null) {
             notificationButton.addEventListener('click', function (evt) {
                 Notification.requestPermission();
-            },true);
+            }, true);
         }
     }
 
-    const galleryPreviews = gradioApp().querySelectorAll('div[id^="tab_"][style*="display: block"] img.h-full.w-full.overflow-hidden');
+    const galleryPreviews = gradioApp().querySelectorAll('div[id^="tab_"][style*="display: block"] div[id$="_results"] img.h-full.w-full.overflow-hidden');
 
     if (galleryPreviews == null) return;
 
@@ -42,7 +42,7 @@ onUiUpdate(function(){
         }
     );
 
-    notification.onclick = function(_){
+    notification.onclick = function (_) {
         parent.focus();
         this.close();
     };

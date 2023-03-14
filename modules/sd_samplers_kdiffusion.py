@@ -15,25 +15,41 @@ samplers_k_diffusion = [
     ('Euler', 'sample_euler', ['k_euler'], {}),
     ('LMS', 'sample_lms', ['k_lms'], {}),
     ('Heun', 'sample_heun', ['k_heun'], {}),
-    ('DPM2', 'sample_dpm_2', ['k_dpm_2'], {'discard_next_to_last_sigma': True}),
-    ('DPM2 a', 'sample_dpm_2_ancestral', ['k_dpm_2_a'], {'discard_next_to_last_sigma': True}),
+    ('DPM2', 'sample_dpm_2', ['k_dpm_2'], {
+        'discard_next_to_last_sigma': True
+    }),
+    ('DPM2 a', 'sample_dpm_2_ancestral', ['k_dpm_2_a'], {
+        'discard_next_to_last_sigma': True
+    }),
     ('DPM++ 2S a', 'sample_dpmpp_2s_ancestral', ['k_dpmpp_2s_a'], {}),
     ('DPM++ 2M', 'sample_dpmpp_2m', ['k_dpmpp_2m'], {}),
     ('DPM++ SDE', 'sample_dpmpp_sde', ['k_dpmpp_sde'], {}),
     ('DPM fast', 'sample_dpm_fast', ['k_dpm_fast'], {}),
     ('DPM adaptive', 'sample_dpm_adaptive', ['k_dpm_ad'], {}),
-    ('LMS Karras', 'sample_lms', ['k_lms_ka'], {'scheduler': 'karras'}),
-    ('DPM2 Karras', 'sample_dpm_2', ['k_dpm_2_ka'], {'scheduler': 'karras', 'discard_next_to_last_sigma': True}),
-    ('DPM2 a Karras', 'sample_dpm_2_ancestral', ['k_dpm_2_a_ka'], {'scheduler': 'karras', 'discard_next_to_last_sigma': True}),
-    ('DPM++ 2S a Karras', 'sample_dpmpp_2s_ancestral', ['k_dpmpp_2s_a_ka'], {'scheduler': 'karras'}),
-    ('DPM++ 2M Karras', 'sample_dpmpp_2m', ['k_dpmpp_2m_ka'], {'scheduler': 'karras'}),
-    ('DPM++ SDE Karras', 'sample_dpmpp_sde', ['k_dpmpp_sde_ka'], {'scheduler': 'karras'}),
+    ('LMS Karras', 'sample_lms', ['k_lms_ka'], {
+        'scheduler': 'karras'
+    }),
+    ('DPM2 Karras', 'sample_dpm_2', ['k_dpm_2_ka'], {
+        'scheduler': 'karras',
+        'discard_next_to_last_sigma': True
+    }),
+    ('DPM2 a Karras', 'sample_dpm_2_ancestral', ['k_dpm_2_a_ka'], {
+        'scheduler': 'karras',
+        'discard_next_to_last_sigma': True
+    }),
+    ('DPM++ 2S a Karras', 'sample_dpmpp_2s_ancestral', ['k_dpmpp_2s_a_ka'], {
+        'scheduler': 'karras'
+    }),
+    ('DPM++ 2M Karras', 'sample_dpmpp_2m', ['k_dpmpp_2m_ka'], {
+        'scheduler': 'karras'
+    }),
+    ('DPM++ SDE Karras', 'sample_dpmpp_sde', ['k_dpmpp_sde_ka'], {
+        'scheduler': 'karras'
+    }),
 ]
 
 samplers_data_k_diffusion = [
-    sd_samplers_common.SamplerData(label, lambda model, funcname=funcname: KDiffusionSampler(funcname, model), aliases, options)
-    for label, funcname, aliases, options in samplers_k_diffusion
-    if hasattr(k_diffusion.sampling, funcname)
+    sd_samplers_common.SamplerData(label, lambda model, funcname=funcname: KDiffusionSampler(funcname, model), aliases, options) for label, funcname, aliases, options in samplers_k_diffusion if hasattr(k_diffusion.sampling, funcname)
 ]
 
 sampler_extra_params = {
@@ -101,11 +117,13 @@ class CFGDenoiser(torch.nn.Module):
             sigma_in = torch.cat([torch.stack([sigma[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [sigma] + [sigma])
             image_cond_in = torch.cat([torch.stack([image_cond[i] for _ in range(n)]) for i, n in enumerate(repeats)] + [image_cond] + [torch.zeros_like(self.init_latent)])
 
-        denoiser_params = CFGDenoiserParams(x_in, image_cond_in, sigma_in, state.sampling_step, state.sampling_steps)
+        denoiser_params = CFGDenoiserParams(x_in, image_cond_in, sigma_in, state.sampling_step, state.sampling_steps, tensor, uncond)
         cfg_denoiser_callback(denoiser_params)
         x_in = denoiser_params.x
         image_cond_in = denoiser_params.image_cond
         sigma_in = denoiser_params.sigma
+        tensor = denoiser_params.text_cond
+        uncond = denoiser_params.text_uncond
 
         if tensor.shape[1] == uncond.shape[1]:
             if not is_edit_model:
@@ -123,7 +141,7 @@ class CFGDenoiser(torch.nn.Module):
                     x_out[a:b] = self.inner_model(x_in[a:b], sigma_in[a:b], cond={"c_crossattn": [cond_in[a:b]], "c_concat": [image_cond_in[a:b]]})
         else:
             x_out = torch.zeros_like(x_in)
-            batch_size = batch_size*2 if shared.batch_cond_uncond else batch_size
+            batch_size = batch_size * 2 if shared.batch_cond_uncond else batch_size
             for batch_offset in range(0, tensor.shape[0], batch_size):
                 a = batch_offset
                 b = min(a + batch_size, tensor.shape[0])
@@ -161,6 +179,7 @@ class CFGDenoiser(torch.nn.Module):
 
 
 class TorchHijack:
+
     def __init__(self, sampler_noises):
         # Using a deque to efficiently receive the sampler_noises in the same order as the previous index-based
         # implementation.
@@ -188,6 +207,7 @@ class TorchHijack:
 
 
 class KDiffusionSampler:
+
     def __init__(self, funcname, sd_model):
         denoiser = k_diffusion.external.CompVisVDenoiser if sd_model.parameterization == "v" else k_diffusion.external.CompVisDenoiser
 
@@ -290,7 +310,7 @@ class KDiffusionSampler:
 
         sigma_sched = sigmas[steps - t_enc - 1:]
         xi = x + noise * sigma_sched[0]
-        
+
         extra_params_kwargs = self.initialize(p)
         parameters = inspect.signature(self.func).parameters
 
@@ -312,10 +332,10 @@ class KDiffusionSampler:
 
         self.model_wrap_cfg.init_latent = x
         self.last_latent = x
-        extra_args={
-            'cond': conditioning, 
-            'image_cond': image_conditioning, 
-            'uncond': unconditional_conditioning, 
+        extra_args = {
+            'cond': conditioning,
+            'image_cond': image_conditioning,
+            'uncond': unconditional_conditioning,
             'cond_scale': p.cfg_scale,
         }
 
@@ -346,12 +366,13 @@ class KDiffusionSampler:
             extra_params_kwargs['noise_sampler'] = noise_sampler
 
         self.last_latent = x
-        samples = self.launch_sampling(steps, lambda: self.func(self.model_wrap_cfg, x, extra_args={
-            'cond': conditioning, 
-            'image_cond': image_conditioning, 
-            'uncond': unconditional_conditioning, 
-            'cond_scale': p.cfg_scale
-        }, disable=False, callback=self.callback_state, **extra_params_kwargs))
+        samples = self.launch_sampling(
+            steps, lambda: self.func(
+                self.model_wrap_cfg, x, extra_args={
+                    'cond': conditioning,
+                    'image_cond': image_conditioning,
+                    'uncond': unconditional_conditioning,
+                    'cond_scale': p.cfg_scale
+                }, disable=False, callback=self.callback_state, **extra_params_kwargs))
 
         return samples
-

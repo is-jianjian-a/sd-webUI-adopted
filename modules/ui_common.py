@@ -38,6 +38,7 @@ def save_files(js_data, images, do_make_zip, index):
 
     #quick dictionary to class object conversion. Its necessary due apply_filename_pattern requiring it
     class MyObject:
+
         def __init__(self, d=None):
             if d is not None:
                 for key, value in d.items():
@@ -178,29 +179,29 @@ Requested path was: {f}
                         show_progress=False,
                     )
 
-                    save_zip.click(
-                        fn=call_queue.wrap_gradio_call(save_files),
-                        _js="(x, y, z, w) => [x, y, true, selected_gallery_index()]",
-                        inputs=[
-                            generation_info,
-                            result_gallery,
-                            html_info,
-                            html_info,
-                        ],
-                        outputs=[
-                            download_files,
-                            html_log,
-                        ]
-                    )
+                    save_zip.click(fn=call_queue.wrap_gradio_call(save_files), _js="(x, y, z, w) => [x, y, true, selected_gallery_index()]", inputs=[
+                        generation_info,
+                        result_gallery,
+                        html_info,
+                        html_info,
+                    ], outputs=[
+                        download_files,
+                        html_log,
+                    ])
 
             else:
                 html_info_x = gr.HTML(elem_id=f'html_info_x_{tabname}')
                 html_info = gr.HTML(elem_id=f'html_info_{tabname}')
                 html_log = gr.HTML(elem_id=f'html_log_{tabname}')
 
+            paste_field_names = []
+            if tabname == "txt2img":
+                paste_field_names = modules.scripts.scripts_txt2img.paste_field_names
+            elif tabname == "img2img":
+                paste_field_names = modules.scripts.scripts_img2img.paste_field_names
+
             for paste_tabname, paste_button in buttons.items():
-                parameters_copypaste.register_paste_params_button(parameters_copypaste.ParamBinding(
-                    paste_button=paste_button, tabname=paste_tabname, source_tabname="txt2img" if tabname == "txt2img" else None, source_image_component=result_gallery
-                ))
+                parameters_copypaste.register_paste_params_button(
+                    parameters_copypaste.ParamBinding(paste_button=paste_button, tabname=paste_tabname, source_tabname="txt2img" if tabname == "txt2img" else None, source_image_component=result_gallery, paste_field_names=paste_field_names))
 
             return result_gallery, generation_info if tabname != "extras" else html_info_x, html_info, html_log

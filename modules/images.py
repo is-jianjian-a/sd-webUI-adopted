@@ -95,6 +95,7 @@ def split_grid(image, tile_w=512, tile_h=512, overlap=64):
 
 
 def combine_grid(grid):
+
     def make_mask_image(r):
         r = r * 255 / grid.overlap
         r = r.astype(np.uint8)
@@ -125,6 +126,7 @@ def combine_grid(grid):
 
 
 class GridAnnotation:
+
     def __init__(self, text='', is_active=True):
         self.text = text
         self.is_active = is_active
@@ -132,6 +134,7 @@ class GridAnnotation:
 
 
 def draw_grid_annotations(im, width, height, hor_texts, ver_texts, margin=0):
+
     def wrap(drawing, text, font, line_length):
         lines = ['']
         for word in text.split():
@@ -199,11 +202,11 @@ def draw_grid_annotations(im, width, height, hor_texts, ver_texts, margin=0):
 
     pad_top = 0 if sum(hor_text_heights) == 0 else max(hor_text_heights) + line_spacing * 2
 
-    result = Image.new("RGB", (im.width + pad_left + margin * (cols-1), im.height + pad_top + margin * (rows-1)), "white")
+    result = Image.new("RGB", (im.width + pad_left + margin * (cols - 1), im.height + pad_top + margin * (rows - 1)), "white")
 
     for row in range(rows):
         for col in range(cols):
-            cell = im.crop((width * col, height * row, width * (col+1), height * (row+1)))
+            cell = im.crop((width * col, height * row, width * (col + 1), height * (row + 1)))
             result.paste(cell, (pad_left + (width + margin) * col, pad_top + (height + margin) * row))
 
     d = ImageDraw.Draw(result)
@@ -333,7 +336,7 @@ def sanitize_filename_part(text, replace_spaces=True):
 class FilenameGenerator:
     replacements = {
         'seed': lambda self: self.seed if self.seed is not None else '',
-        'steps': lambda self:  self.p and self.p.steps,
+        'steps': lambda self: self.p and self.p.steps,
         'cfg': lambda self: self.p and self.p.cfg_scale,
         'width': lambda self: self.image.width,
         'height': lambda self: self.image.height,
@@ -454,7 +457,22 @@ def get_next_sequence_number(path, basename):
     return result + 1
 
 
-def save_image(image, path, basename, seed=None, prompt=None, extension='png', info=None, short_filename=False, no_prompt=False, grid=False, pnginfo_section_name='parameters', p=None, existing_info=None, forced_filename=None, suffix="", save_to_dirs=None):
+def save_image(image,
+               path,
+               basename,
+               seed=None,
+               prompt=None,
+               extension='png',
+               info=None,
+               short_filename=False,
+               no_prompt=False,
+               grid=False,
+               pnginfo_section_name='parameters',
+               p=None,
+               existing_info=None,
+               forced_filename=None,
+               suffix="",
+               save_to_dirs=None):
     """Save an image.
 
     Args:
@@ -556,7 +574,7 @@ def save_image(image, path, basename, seed=None, prompt=None, extension='png', i
             elif image_to_save.mode == 'I;16':
                 image_to_save = image_to_save.point(lambda p: p * 0.0038910505836576).convert("RGB" if extension.lower() == ".webp" else "L")
 
-            image_to_save.save(temp_file_path, format=image_format, quality=opts.jpeg_quality)
+            image_to_save.save(temp_file_path, format=image_format, quality=opts.jpeg_quality, lossless=opts.webp_lossless)
 
             if opts.enable_pnginfo and info is not None:
                 exif_bytes = piexif.dump({
@@ -620,8 +638,7 @@ def read_info_from_image(image):
             items['exif comment'] = exif_comment
             geninfo = exif_comment
 
-        for field in ['jfif', 'jfif_version', 'jfif_unit', 'jfif_density', 'dpi', 'exif',
-                      'loop', 'background', 'timestamp', 'duration']:
+        for field in ['jfif', 'jfif_version', 'jfif_unit', 'jfif_density', 'dpi', 'exif', 'loop', 'background', 'timestamp', 'duration']:
             items.pop(field, None)
 
     if items.get("Software", None) == "NovelAI":

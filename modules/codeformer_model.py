@@ -42,6 +42,7 @@ def setup_model(dirname):
         net_class = CodeFormer
 
         class FaceRestorerCodeFormer(modules.face_restoration.FaceRestoration):
+
             def name(self):
                 return "CodeFormer"
 
@@ -55,7 +56,7 @@ def setup_model(dirname):
                 if self.net is not None and self.face_helper is not None:
                     self.net.to(devices.device_codeformer)
                     return self.net, self.face_helper
-                model_paths = modelloader.load_models(model_path, model_url, self.cmd_dir, download_name='codeformer-v0.1.0.pth')
+                model_paths = modelloader.load_models(model_path, model_url, self.cmd_dir, download_name='codeformer-v0.1.0.pth', ext_filter=['.pth'])
                 if len(model_paths) != 0:
                     ckpt_path = model_paths[0]
                 else:
@@ -120,7 +121,7 @@ def setup_model(dirname):
                 restored_img = restored_img[:, :, ::-1]
 
                 if original_resolution != restored_img.shape[0:2]:
-                    restored_img = cv2.resize(restored_img, (0, 0), fx=original_resolution[1]/restored_img.shape[1], fy=original_resolution[0]/restored_img.shape[0], interpolation=cv2.INTER_LINEAR)
+                    restored_img = cv2.resize(restored_img, (0, 0), fx=original_resolution[1] / restored_img.shape[1], fy=original_resolution[0] / restored_img.shape[0], interpolation=cv2.INTER_LINEAR)
 
                 self.face_helper.clean_all()
 
@@ -140,4 +141,4 @@ def setup_model(dirname):
         print("Error setting up CodeFormer:", file=sys.stderr)
         print(traceback.format_exc(), file=sys.stderr)
 
-   # sys.path = stored_sys_path
+# sys.path = stored_sys_path

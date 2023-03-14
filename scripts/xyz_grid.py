@@ -29,6 +29,7 @@ AxisInfo = namedtuple('AxisInfo', ['axis', 'values'])
 
 
 def apply_field(field):
+
     def fun(p, x, xs):
         setattr(p, field, x)
 
@@ -128,6 +129,24 @@ def apply_styles(p: StableDiffusionProcessingTxt2Img, x: str, _):
     p.styles.extend(x.split(','))
 
 
+def apply_uni_pc_order(p, x, xs):
+    opts.data["uni_pc_order"] = min(x, p.steps - 1)
+
+
+def apply_face_restore(p, opt, x):
+    opt = opt.lower()
+    if opt == 'codeformer':
+        is_active = True
+        p.face_restoration_model = 'CodeFormer'
+    elif opt == 'gfpgan':
+        is_active = True
+        p.face_restoration_model = 'GFPGAN'
+    else:
+        is_active = opt in ('true', 'yes', 'y', '1')
+
+    p.restore_faces = is_active
+
+
 def format_value_add_label(p, opt, x):
     if type(x) == float:
         x = round(x, 8)
@@ -159,6 +178,7 @@ def str_permutations(x):
 
 
 class AxisOption:
+
     def __init__(self, label, type, apply, format_value=format_value_add_label, confirm=None, cost=0.0, choices=None):
         self.label = label
         self.type = type
@@ -170,11 +190,14 @@ class AxisOption:
 
 
 class AxisOptionImg2Img(AxisOption):
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.is_img2img = True
 
+
 class AxisOptionTxt2Img(AxisOption):
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.is_img2img = False
@@ -205,6 +228,8 @@ axis_options = [
     AxisOptionImg2Img("Cond. Image Mask Weight", float, apply_field("inpainting_mask_weight")),
     AxisOption("VAE", str, apply_vae, cost=0.7, choices=lambda: list(sd_vae.vae_dict)),
     AxisOption("Styles", str, apply_styles, choices=lambda: list(shared.prompt_styles.styles)),
+    AxisOption("UniPC Order", int, apply_uni_pc_order, cost=0.5),
+    AxisOption("Face restore", str, apply_face_restore, format_value=format_value),
 ]
 
 
@@ -213,49 +238,46 @@ def draw_xyz_grid(p, xs, ys, zs, x_labels, y_labels, z_labels, cell, draw_legend
     ver_texts = [[images.GridAnnotation(y)] for y in y_labels]
     title_texts = [[images.GridAnnotation(z)] for z in z_labels]
 
-    # Temporary list of all the images that are generated to be populated into the grid.
-    # Will be filled with empty images for any individual step that fails to process properly
-    image_cache = [None] * (len(xs) * len(ys) * len(zs))
+    list_size = (len(xs) * len(ys) * len(zs))
 
     processed_result = None
-    cell_mode = "P"
-    cell_size = (1, 1)
 
-    state.job_count = len(xs) * len(ys) * len(zs) * p.n_iter
+    state.job_count = list_size * p.n_iter
 
     def process_cell(x, y, z, ix, iy, iz):
-        nonlocal image_cache, processed_result, cell_mode, cell_size
+        nonlocal processed_result
 
         def index(ix, iy, iz):
             return ix + iy * len(xs) + iz * len(xs) * len(ys)
 
-        state.job = f"{index(ix, iy, iz) + 1} out of {len(xs) * len(ys) * len(zs)}"
+        state.job = f"{index(ix, iy, iz) + 1} out of {list_size}"
 
         processed: Processed = cell(x, y, z)
 
-        try:
-            # this dereference will throw an exception if the image was not processed
-            # (this happens in cases such as if the user stops the process from the UI)
-            processed_image = processed.images[0]
+        if processed_result is None:
+            # Use our first processed result object as a template container to hold our full results
+            processed_result = copy(processed)
+            processed_result.images = [None] * list_size
+            processed_result.all_prompts = [None] * list_size
+            processed_result.all_seeds = [None] * list_size
+            processed_result.infotexts = [None] * list_size
+            processed_result.index_of_first_image = 1
 
-            if processed_result is None:
-                # Use our first valid processed result as a template container to hold our full results
-                processed_result = copy(processed)
-                cell_mode = processed_image.mode
-                cell_size = processed_image.size
-                processed_result.images = [Image.new(cell_mode, cell_size)]
-                processed_result.all_prompts = [processed.prompt]
-                processed_result.all_seeds = [processed.seed]
-                processed_result.infotexts = [processed.infotexts[0]]
-
-            image_cache[index(ix, iy, iz)] = processed_image
-            if include_lone_images:
-                processed_result.images.append(processed_image)
-                processed_result.all_prompts.append(processed.prompt)
-                processed_result.all_seeds.append(processed.seed)
-                processed_result.infotexts.append(processed.infotexts[0])
-        except:
-            image_cache[index(ix, iy, iz)] = Image.new(cell_mode, cell_size)
+        idx = index(ix, iy, iz)
+        if processed.images:
+            # Non-empty list indicates some degree of success.
+            processed_result.images[idx] = processed.images[0]
+            processed_result.all_prompts[idx] = processed.prompt
+            processed_result.all_seeds[idx] = processed.seed
+            processed_result.infotexts[idx] = processed.infotexts[0]
+        else:
+            cell_mode = "P"
+            cell_size = (processed_result.width, processed_result.height)
+            if processed_result.images[0] is not None:
+                cell_mode = processed_result.images[0].mode
+                #This corrects size in case of batches:
+                cell_size = processed_result.images[0].size
+            processed_result.images[idx] = Image.new(cell_mode, cell_size)
 
     if first_axes_processed == 'x':
         for ix, x in enumerate(xs):
@@ -289,36 +311,49 @@ def draw_xyz_grid(p, xs, ys, zs, x_labels, y_labels, z_labels, cell, draw_legend
                         process_cell(x, y, z, ix, iy, iz)
 
     if not processed_result:
+        # Should never happen, I've only seen it on one of four open tabs and it needed to refresh.
+        print("Unexpected error: Processing could not begin, you may need to refresh the tab or restart the service.")
+        return Processed(p, [])
+    elif not any(processed_result.images):
         print("Unexpected error: draw_xyz_grid failed to return even a single processed image")
         return Processed(p, [])
 
-    sub_grids = [None] * len(zs)
-    for i in range(len(zs)):
-        start_index = i * len(xs) * len(ys)
+    z_count = len(zs)
+    sub_grids = [None] * z_count
+    for i in range(z_count):
+        start_index = (i * len(xs) * len(ys)) + i
         end_index = start_index + len(xs) * len(ys)
-        grid = images.image_grid(image_cache[start_index:end_index], rows=len(ys))
+        grid = images.image_grid(processed_result.images[start_index:end_index], rows=len(ys))
         if draw_legend:
-            grid = images.draw_grid_annotations(grid, cell_size[0], cell_size[1], hor_texts, ver_texts, margin_size)
-        sub_grids[i] = grid
-        if include_sub_grids and len(zs) > 1:
-            processed_result.images.insert(i+1, grid)
+            grid = images.draw_grid_annotations(grid, processed_result.images[start_index].size[0], processed_result.images[start_index].size[1], hor_texts, ver_texts, margin_size)
+        processed_result.images.insert(i, grid)
+        processed_result.all_prompts.insert(i, processed_result.all_prompts[start_index])
+        processed_result.all_seeds.insert(i, processed_result.all_seeds[start_index])
+        processed_result.infotexts.insert(i, processed_result.infotexts[start_index])
 
-    sub_grid_size = sub_grids[0].size
-    z_grid = images.image_grid(sub_grids, rows=1)
+    sub_grid_size = processed_result.images[0].size
+    z_grid = images.image_grid(processed_result.images[:z_count], rows=1)
     if draw_legend:
         z_grid = images.draw_grid_annotations(z_grid, sub_grid_size[0], sub_grid_size[1], title_texts, [[images.GridAnnotation()]])
-    processed_result.images[0] = z_grid
+    processed_result.images.insert(0, z_grid)
+    #TODO: Deeper aspects of the program rely on grid info being misaligned between metadata arrays, which is not ideal.
+    #processed_result.all_prompts.insert(0, processed_result.all_prompts[0])
+    #processed_result.all_seeds.insert(0, processed_result.all_seeds[0])
+    processed_result.infotexts.insert(0, processed_result.infotexts[0])
 
-    return processed_result, sub_grids
+    return processed_result
 
 
 class SharedSettingsStackHelper(object):
+
     def __enter__(self):
         self.CLIP_stop_at_last_layers = opts.CLIP_stop_at_last_layers
         self.vae = opts.sd_vae
-  
+        self.uni_pc_order = opts.uni_pc_order
+
     def __exit__(self, exc_type, exc_value, tb):
         opts.data["sd_vae"] = self.vae
+        opts.data["uni_pc_order"] = self.uni_pc_order
         modules.sd_models.reload_model_weights()
         modules.sd_vae.reload_vae_weights()
 
@@ -333,6 +368,7 @@ re_range_count_float = re.compile(r"\s*([+-]?\s*\d+(?:.\d*)?)\s*-\s*([+-]?\s*\d+
 
 
 class Script(scripts.Script):
+
     def title(self):
         return "X/Y/Z plot"
 
@@ -365,7 +401,7 @@ class Script(scripts.Script):
                 include_sub_grids = gr.Checkbox(label='Include Sub Grids', value=False, elem_id=self.elem_id("include_sub_grids"))
             with gr.Column():
                 margin_size = gr.Slider(label="Grid margins (px)", minimum=0, maximum=500, value=0, step=2, elem_id=self.elem_id("margin_size"))
-        
+
         with gr.Row(variant="compact", elem_id="swap_axes"):
             swap_xy_axes_button = gr.Button(value="Swap X/Y axes", elem_id="xy_grid_swap_axes_button")
             swap_yz_axes_button = gr.Button(value="Swap Y/Z axes", elem_id="yz_grid_swap_axes_button")
@@ -418,7 +454,7 @@ class Script(scripts.Script):
             if opt.label == 'Nothing':
                 return [0]
 
-            valslist = [x.strip() for x in chain.from_iterable(csv.reader(StringIO(vals)))]
+            valslist = [x.strip() for x in chain.from_iterable(csv.reader(StringIO(vals))) if x]
 
             if opt.type == int:
                 valslist_ext = []
@@ -428,15 +464,15 @@ class Script(scripts.Script):
                     mc = re_range_count.fullmatch(val)
                     if m is not None:
                         start = int(m.group(1))
-                        end = int(m.group(2))+1
+                        end = int(m.group(2)) + 1
                         step = int(m.group(3)) if m.group(3) is not None else 1
 
                         valslist_ext += list(range(start, end, step))
                     elif mc is not None:
                         start = int(mc.group(1))
-                        end   = int(mc.group(2))
-                        num   = int(mc.group(3)) if mc.group(3) is not None else 1
-                        
+                        end = int(mc.group(2))
+                        num = int(mc.group(3)) if mc.group(3) is not None else 1
+
                         valslist_ext += [int(x) for x in np.linspace(start=start, stop=end, num=num).tolist()]
                     else:
                         valslist_ext.append(val)
@@ -456,9 +492,9 @@ class Script(scripts.Script):
                         valslist_ext += np.arange(start, end + step, step).tolist()
                     elif mc is not None:
                         start = float(mc.group(1))
-                        end   = float(mc.group(2))
-                        num   = int(mc.group(3)) if mc.group(3) is not None else 1
-                        
+                        end = float(mc.group(2))
+                        num = int(mc.group(3)) if mc.group(3) is not None else 1
+
                         valslist_ext += np.linspace(start=start, stop=end, num=num).tolist()
                     else:
                         valslist_ext.append(val)
@@ -483,6 +519,10 @@ class Script(scripts.Script):
 
         z_opt = self.current_axis_options[z_type]
         zs = process_axis(z_opt, z_values)
+
+        # this could be moved to common code, but unlikely to be ever triggered anywhere else
+        grid_mp = round(len(xs) * len(ys) * len(zs) * p.width * p.height / 1000000)
+        assert grid_mp < opts.img_max_size_mp, f'Error: Resulting grid would be too large ({grid_mp} MPixels) (max configured size is {opts.img_max_size_mp} MPixels)'
 
         def fix_axis_seeds(axis_opt, axis_list):
             if axis_opt.label in ['Seed', 'Var. seed']:
@@ -533,7 +573,7 @@ class Script(scripts.Script):
         # If one of the axes is very slow to change between (like SD model
         # checkpoint), then make sure it is in the outer iteration of the nested
         # `for` loop.
-        first_axes_processed = 'x'
+        first_axes_processed = 'z'
         second_axes_processed = 'y'
         if x_opt.cost > y_opt.cost and x_opt.cost > z_opt.cost:
             first_axes_processed = 'x'
@@ -593,28 +633,45 @@ class Script(scripts.Script):
             return res
 
         with SharedSettingsStackHelper():
-            processed, sub_grids = draw_xyz_grid(
-                p,
-                xs=xs,
-                ys=ys,
-                zs=zs,
-                x_labels=[x_opt.format_value(p, x_opt, x) for x in xs],
-                y_labels=[y_opt.format_value(p, y_opt, y) for y in ys],
-                z_labels=[z_opt.format_value(p, z_opt, z) for z in zs],
-                cell=cell,
-                draw_legend=draw_legend,
-                include_lone_images=include_lone_images,
-                include_sub_grids=include_sub_grids,
-                first_axes_processed=first_axes_processed,
-                second_axes_processed=second_axes_processed,
-                margin_size=margin_size
-            )
+            processed = draw_xyz_grid(p,
+                                      xs=xs,
+                                      ys=ys,
+                                      zs=zs,
+                                      x_labels=[x_opt.format_value(p, x_opt, x) for x in xs],
+                                      y_labels=[y_opt.format_value(p, y_opt, y) for y in ys],
+                                      z_labels=[z_opt.format_value(p, z_opt, z) for z in zs],
+                                      cell=cell,
+                                      draw_legend=draw_legend,
+                                      include_lone_images=include_lone_images,
+                                      include_sub_grids=include_sub_grids,
+                                      first_axes_processed=first_axes_processed,
+                                      second_axes_processed=second_axes_processed,
+                                      margin_size=margin_size)
 
-        if opts.grid_save and len(sub_grids) > 1:
-            for sub_grid in sub_grids:
-                images.save_image(sub_grid, p.outpath_grids, "xyz_grid", info=grid_infotext[0], extension=opts.grid_format, prompt=p.prompt, seed=processed.seed, grid=True, p=p)
+        if not processed.images:
+            # It broke, no further handling needed.
+            return processed
+
+        z_count = len(zs)
+
+        if not include_lone_images:
+            # Don't need sub-images anymore, drop from list:
+            processed.images = processed.images[:z_count + 1]
 
         if opts.grid_save:
-            images.save_image(processed.images[0], p.outpath_grids, "xyz_grid", info=grid_infotext[0], extension=opts.grid_format, prompt=p.prompt, seed=processed.seed, grid=True, p=p)
+            # Auto-save main and sub-grids:
+            grid_count = z_count + 1 if z_count > 1 else 1
+            for g in range(grid_count):
+                #TODO: See previous comment about intentional data misalignment.
+                adj_g = g - 1 if g > 0 else g
+                images.save_image(processed.images[g], p.outpath_grids, "xyz_grid", info=processed.infotexts[g], extension=opts.grid_format, prompt=processed.all_prompts[adj_g], seed=processed.all_seeds[adj_g], grid=True, p=processed)
+
+        if not include_sub_grids:
+            # Done with sub-grids, drop all related information:
+            for sg in range(z_count):
+                del processed.images[1]
+                del processed.all_prompts[1]
+                del processed.all_seeds[1]
+                del processed.infotexts[1]
 
         return processed

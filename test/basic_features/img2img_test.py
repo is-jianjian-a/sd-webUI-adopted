@@ -1,14 +1,17 @@
+import os
 import unittest
 import requests
 from gradio.processing_utils import encode_pil_to_base64
 from PIL import Image
+from modules.paths import script_path
 
 
 class TestImg2ImgWorking(unittest.TestCase):
+
     def setUp(self):
         self.url_img2img = "http://localhost:7860/sdapi/v1/img2img"
         self.simple_img2img = {
-            "init_images": [encode_pil_to_base64(Image.open(r"test/test_files/img2img_basic.png"))],
+            "init_images": [encode_pil_to_base64(Image.open(os.path.join(script_path, r"test/test_files/img2img_basic.png")))],
             "resize_mode": 0,
             "denoising_strength": 0.75,
             "mask": None,
@@ -41,17 +44,17 @@ class TestImg2ImgWorking(unittest.TestCase):
             "override_settings": {},
             "sampler_index": "Euler a",
             "include_init_images": False
-            }
+        }
 
     def test_img2img_simple_performed(self):
         self.assertEqual(requests.post(self.url_img2img, json=self.simple_img2img).status_code, 200)
 
     def test_inpainting_masked_performed(self):
-        self.simple_img2img["mask"] = encode_pil_to_base64(Image.open(r"test/test_files/mask_basic.png"))
+        self.simple_img2img["mask"] = encode_pil_to_base64(Image.open(os.path.join(script_path, r"test/test_files/img2img_basic.png")))
         self.assertEqual(requests.post(self.url_img2img, json=self.simple_img2img).status_code, 200)
 
     def test_inpainting_with_inverted_masked_performed(self):
-        self.simple_img2img["mask"] = encode_pil_to_base64(Image.open(r"test/test_files/mask_basic.png"))
+        self.simple_img2img["mask"] = encode_pil_to_base64(Image.open(os.path.join(script_path, r"test/test_files/img2img_basic.png")))
         self.simple_img2img["inpainting_mask_invert"] = True
         self.assertEqual(requests.post(self.url_img2img, json=self.simple_img2img).status_code, 200)
 

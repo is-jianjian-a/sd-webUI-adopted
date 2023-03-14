@@ -41,6 +41,7 @@ def draw_xy_grid(xs, ys, x_label, y_label, cell):
 
 
 class Script(scripts.Script):
+
     def title(self):
         return "Prompt matrix"
 
@@ -75,7 +76,7 @@ class Script(scripts.Script):
 
         all_prompts = []
         prompt_matrix_parts = original_prompt.split("|")
-        combination_count = 2 ** (len(prompt_matrix_parts) - 1)
+        combination_count = 2**(len(prompt_matrix_parts) - 1)
         for combination_num in range(combination_count):
             selected_prompts = [text.strip().strip(',') for n, text in enumerate(prompt_matrix_parts[1:]) if combination_num & (1 << n)]
 
@@ -99,8 +100,8 @@ class Script(scripts.Script):
         p.prompt_for_display = positive_prompt
         processed = process_images(p)
 
-        grid = images.image_grid(processed.images, p.batch_size, rows=1 << ((len(prompt_matrix_parts) - 1) // 2)) 
-        grid = images.draw_prompt_matrix(grid, processed.images[0].width, processed.images[1].height, prompt_matrix_parts, margin_size)
+        grid = images.image_grid(processed.images, p.batch_size, rows=1 << ((len(prompt_matrix_parts) - 1) // 2))
+        grid = images.draw_prompt_matrix(grid, processed.images[0].width, processed.images[0].height, prompt_matrix_parts, margin_size)
         processed.images.insert(0, grid)
         processed.index_of_first_image = 1
         processed.infotexts.insert(0, processed.infotexts[0])

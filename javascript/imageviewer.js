@@ -11,7 +11,7 @@ function showModal(event) {
     if (modalImage.style.display === 'none') {
         lb.style.setProperty('background-image', 'url(' + source.src + ')');
     }
-    lb.style.display = "block";
+    lb.style.display = "flex";
     lb.focus()
 
     const tabTxt2Img = gradioApp().getElementById("tab_txt2img")
@@ -34,7 +34,7 @@ function updateOnBackgroundChange() {
     if (modalImage && modalImage.offsetParent) {
         let allcurrentButtons = gradioApp().querySelectorAll(".gallery-item.transition-all.\\!ring-2")
         let currentButton = null
-        allcurrentButtons.forEach(function(elem) {
+        allcurrentButtons.forEach(function (elem) {
             if (elem.parentElement.offsetParent) {
                 currentButton = elem;
             }
@@ -52,7 +52,7 @@ function updateOnBackgroundChange() {
 function modalImageSwitch(offset) {
     var allgalleryButtons = gradioApp().querySelectorAll(".gallery-item.transition-all")
     var galleryButtons = []
-    allgalleryButtons.forEach(function(elem) {
+    allgalleryButtons.forEach(function (elem) {
         if (elem.parentElement.offsetParent) {
             galleryButtons.push(elem);
         }
@@ -61,14 +61,14 @@ function modalImageSwitch(offset) {
     if (galleryButtons.length > 1) {
         var allcurrentButtons = gradioApp().querySelectorAll(".gallery-item.transition-all.\\!ring-2")
         var currentButton = null
-        allcurrentButtons.forEach(function(elem) {
+        allcurrentButtons.forEach(function (elem) {
             if (elem.parentElement.offsetParent) {
                 currentButton = elem;
             }
         })
 
         var result = -1
-        galleryButtons.forEach(function(v, i) {
+        galleryButtons.forEach(function (v, i) {
             if (v == currentButton) {
                 result = i
             }
@@ -83,14 +83,14 @@ function modalImageSwitch(offset) {
             if (modalImage.style.display === 'none') {
                 modal.style.setProperty('background-image', `url(${modalImage.src})`)
             }
-            setTimeout(function() {
+            setTimeout(function () {
                 modal.focus()
             }, 10)
         }
     }
 }
 
-function saveImage(){
+function saveImage() {
     const tabTxt2Img = gradioApp().getElementById("tab_txt2img")
     const tabImg2Img = gradioApp().getElementById("tab_img2img")
     const saveTxt2Img = "save_txt2img"
@@ -137,7 +137,7 @@ function modalKeyHandler(event) {
 }
 
 function showGalleryImage() {
-    setTimeout(function() {
+    setTimeout(function () {
         fullImg_preview = gradioApp().querySelectorAll('img.w-full.object-contain')
 
         if (fullImg_preview != null) {
@@ -145,9 +145,9 @@ function showGalleryImage() {
                 if (e.dataset.modded)
                     return;
                 e.dataset.modded = true;
-                if(e && e.parentElement.tagName == 'DIV'){
-                    e.style.cursor='pointer'
-                    e.style.userSelect='none'
+                if (e && e.parentElement.tagName == 'DIV') {
+                    e.style.cursor = 'pointer'
+                    e.style.userSelect = 'none'
 
                     var isFirefox = isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1
 
@@ -157,7 +157,7 @@ function showGalleryImage() {
                     var event = isFirefox ? 'mousedown' : 'click'
 
                     e.addEventListener(event, function (evt) {
-                        if(!opts.js_modal_lightbox || evt.button != 0) return;
+                        if (!opts.js_modal_lightbox || evt.button != 0) return;
                         modalZoomSet(gradioApp().getElementById('modalImage'), opts.js_modal_lightbox_initially_zoomed)
                         evt.preventDefault()
                         showModal(evt)
@@ -204,7 +204,7 @@ function galleryImageHandler(e) {
     }
 }
 
-onUiUpdate(function() {
+onUiUpdate(function () {
     fullImg_preview = gradioApp().querySelectorAll('img.w-full')
     if (fullImg_preview != null) {
         fullImg_preview.forEach(galleryImageHandler);
@@ -212,7 +212,7 @@ onUiUpdate(function() {
     updateOnBackgroundChange();
 })
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
     const modalFragment = document.createDocumentFragment();
     const modal = document.createElement('div')
     modal.onclick = closeModal;

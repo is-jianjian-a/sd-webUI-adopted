@@ -16,6 +16,7 @@ import modules.devices as devices
 from modules import localization, extensions, script_loading, errors, ui_components, shared_items
 from modules.paths import models_path, script_path, data_path
 
+
 demo = None
 
 sd_configs_path = os.path.join(script_path, "configs")
@@ -125,6 +126,7 @@ parser.add_argument("--gradio-queue", action='store_true', help="Uses gradio que
 parser.add_argument("--skip-version-check", action='store_true', help="Do not check versions of torch and xformers")
 parser.add_argument("--no-hashing", action='store_true', help="disable sha256 hashing of checkpoints to help loading performance", default=False)
 parser.add_argument("--no-download-sd-model", action='store_true', help="don't download SD1.5 model even if no model is found in --ckpt-dir", default=False)
+
 
 script_loading.preload_extensions(extensions.extensions_dir, parser)
 script_loading.preload_extensions(extensions.extensions_builtin_dir, parser)
@@ -289,9 +291,7 @@ interrogator = modules.interrogate.InterrogateModels("interrogate")
 
 face_restorers = []
 
-
 class OptionInfo:
-
     def __init__(self, default=None, label="", component=None, component_args=None, onchange=None, section=None, refresh=None):
         self.default = default
         self.label = label

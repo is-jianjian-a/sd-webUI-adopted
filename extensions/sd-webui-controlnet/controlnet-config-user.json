@@ -1,0 +1,42 @@
+{
+    "controlnet_0": {
+        "enabled": true,
+        "scribble_mode": true,
+        "annotator_resolution": 832,
+        "canvas_width": 512,
+        "canvas_height": 768,
+        "Preprocessor": "canny",
+        "Model": "control_canny-fp16 [e3fe7712]",
+        "Weight": 0.7
+    },
+    "controlnet_1": {
+        "enabled": true,
+        "scribble_mode": false,
+        "annotator_resolution": 832,
+        "canvas_width": 512,
+        "canvas_height": 768,
+        "Preprocessor": "openpose",
+        "Model": "control_openpose-fp16 [9ca67cc5]",
+        "Weight": 1.0
+    },
+    "controlnet_2": {
+        "enabled": true,
+        "scribble_mode": false,
+        "annotator_resolution": 832,
+        "canvas_width": 512,
+        "canvas_height": 768,
+        "Preprocessor": "normal_map",
+        "Model": "control_normal-fp16 [63f96f7c]",
+        "Weight": 0.5
+    },
+    "controlnet_3": {
+        "enabled": true,
+        "scribble_mode": false,
+        "annotator_resolution": 832,
+        "canvas_width": 512,
+        "canvas_height": 768,
+        "Preprocessor": "segmentation",
+        "Model": "control_seg [d670213a]",
+        "Weight": 0.6
+    }
+}

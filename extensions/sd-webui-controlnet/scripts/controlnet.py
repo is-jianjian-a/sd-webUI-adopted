@@ -1,9 +1,11 @@
+import argparse
 import gc
 import os
 import stat
 from collections import OrderedDict
 
 import torch
+import json
 
 import modules.scripts as scripts
 from modules import shared, devices, script_callbacks, processing, masking, images
@@ -68,6 +70,8 @@ webcam_enabled = False
 webcam_mirrored = False
 
 PARAM_COUNT = 15
+with open("extensions/sd-webui-controlnet/controlnet-config-user.json", "r", encoding="utf8") as file:
+    ctrl_opts_file = json.load(file)
 
 
 class ToolButton(gr.Button, gr.components.FormComponent):
@@ -232,7 +236,7 @@ class Script(scripts.Script):
     def get_threshold_block(self, proc):
         pass
 
-    def uigroup(self, is_img2img):
+    def uigroup(self, is_img2img, ctrl_opts):
         ctrls = ()
         infotext_fields = []
         with gr.Row():
@@ -246,8 +250,8 @@ class Script(scripts.Script):
             send_dimen_button = ToolButton(value=tossup_symbol)
 
         with gr.Row():
-            enabled = gr.Checkbox(label='Enable', value=False)
-            scribble_mode = gr.Checkbox(label='Invert Input Color', value=False)
+            enabled = gr.Checkbox(label='Enable', value=ctrl_opts["enabled"])
+            scribble_mode = gr.Checkbox(label='Invert Input Color', value=ctrl_opts["scribble_mode"])
             rgbbgr_mode = gr.Checkbox(label='RGB to BGR', value=False)
             lowvram = gr.Checkbox(label='Low VRAM', value=False)
             guess_mode = gr.Checkbox(label='Guess Mode', value=False)
@@ -292,13 +296,13 @@ class Script(scripts.Script):
             return gr.Dropdown.update(value=selected, choices=list(cn_models.keys()))
 
         with gr.Row():
-            module = gr.Dropdown(list(self.preprocessor.keys()), label=f"Preprocessor", value="none")
-            model = gr.Dropdown(list(cn_models.keys()), label=f"Model", value="None")
+            module = gr.Dropdown(list(self.preprocessor.keys()), label=f"Preprocessor", value=ctrl_opts["Preprocessor"])
+            model = gr.Dropdown(list(cn_models.keys()), label=f"Model", value=ctrl_opts["Model"])
             refresh_models = ToolButton(value=refresh_symbol)
             refresh_models.click(refresh_all_models, model, model)
             # ctrls += (refresh_models, )
         with gr.Row():
-            weight = gr.Slider(label=f"Weight", value=1.0, minimum=0.0, maximum=2.0, step=.05)
+            weight = gr.Slider(label=f"Weight", value=ctrl_opts["Weight"], minimum=0.0, maximum=2.0, step=.05)
             guidance_start = gr.Slider(label="Guidance Start (T)", value=0.0, minimum=0.0, maximum=1.0, interactive=True)
             guidance_end = gr.Slider(label="Guidance End (T)", value=1.0, minimum=0.0, maximum=1.0, interactive=True)
 
@@ -308,15 +312,16 @@ class Script(scripts.Script):
                 weight,
             )
             # model_dropdowns.append(model)
+
         def build_sliders(module):
             if module == "canny":
                 return [
-                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="Annotator resolution", value=ctrl_opts["annotator_resolution"], minimum=64, maximum=2048, step=1, interactive=True),
                     gr.update(label="Canny low threshold", minimum=1, maximum=255, value=100, step=1, interactive=True),
                     gr.update(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1, interactive=True),
                     gr.update(visible=True)
                 ]
-            elif module == "mlsd":  #Hough
+            elif module == "mlsd":  # Hough
                 return [
                     gr.update(label="Hough Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                     gr.update(label="Hough value threshold (MLSD)", minimum=0.01, maximum=2.0, value=0.1, step=0.01, interactive=True),
@@ -325,14 +330,14 @@ class Script(scripts.Script):
                 ]
             elif module in ["hed", "fake_scribble"]:
                 return [
-                    gr.update(label="HED Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                    gr.update(label="HED Resolution", minimum=832, maximum=2048, value=512, step=1, interactive=True),
                     gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
                 ]
             elif module in ["openpose", "openpose_hand", "segmentation"]:
                 return [
-                    gr.update(label="Annotator Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                    gr.update(label="Annotator Resolution", minimum=64, maximum=2048, value=ctrl_opts["annotator_resolution"], step=1, interactive=True),
                     gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
@@ -360,7 +365,7 @@ class Script(scripts.Script):
                 ]
             elif module == "binary":
                 return [
-                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="Annotator resolution", value=ctrl_opts["annotator_resolution"], minimum=64, maximum=2048, step=1, interactive=True),
                     gr.update(label="Binary threshold", minimum=0, maximum=255, value=0, step=1, interactive=True),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
@@ -374,7 +379,7 @@ class Script(scripts.Script):
                 ]
             else:
                 return [
-                    gr.update(label="Annotator resolution", value=512, minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="Annotator resolution", value=ctrl_opts["annotator_resolution"], minimum=64, maximum=2048, step=1, interactive=True),
                     gr.update(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
                     gr.update(visible=True)
@@ -383,7 +388,7 @@ class Script(scripts.Script):
         # advanced options
         advanced = gr.Column(visible=False)
         with advanced:
-            processor_res = gr.Slider(label="Annotator resolution", value=64, minimum=64, maximum=2048, interactive=False)
+            processor_res = gr.Slider(label="Annotator resolution", value=ctrl_opts["annotator_resolution"], minimum=64, maximum=2048, interactive=False)
             threshold_a = gr.Slider(label="Threshold A", value=64, minimum=64, maximum=1024, interactive=False)
             threshold_b = gr.Slider(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False)
 
@@ -411,8 +416,8 @@ class Script(scripts.Script):
         resize_mode = gr.Radio(choices=["Envelope (Outer Fit)", "Scale to Fit (Inner Fit)", "Just Resize"], value="Scale to Fit (Inner Fit)", label="Resize Mode")
         with gr.Row():
             with gr.Column():
-                canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=512, step=64)
-                canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=512, step=64)
+                canvas_width = gr.Slider(label="Canvas Width", minimum=256, maximum=1024, value=ctrl_opts["canvas_width"], step=64)
+                canvas_height = gr.Slider(label="Canvas Height", minimum=256, maximum=1024, value=ctrl_opts["canvas_height"], step=64)
 
             if gradio_compat:
                 canvas_swap_res = ToolButton(value=switch_values_symbol)
@@ -470,7 +475,8 @@ class Script(scripts.Script):
                     with gr.Tabs():
                         for i in range(max_models):
                             with gr.Tab(f"Control Model - {i}"):
-                                ctrls = self.uigroup(is_img2img)
+                                ctrl_opts = ctrl_opts_file["controlnet_" + str(i)]
+                                ctrls = self.uigroup(is_img2img, ctrl_opts)
                                 self.register_modules(f"ControlNet-{i}", ctrls)
                                 ctrls_group += ctrls
                 else:

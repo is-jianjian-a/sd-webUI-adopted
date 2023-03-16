@@ -2,10 +2,10 @@
     "controlnet_0": {
         "enabled": true,
         "scribble_mode": true,
-        "annotator_resolution": 832,
+        "annotator_resolution": 512,
         "canvas_width": 512,
         "canvas_height": 768,
-        "Preprocessor": "canny",
+        "Preprocessor": "canny_N",
         "Model": "control_canny-fp16 [e3fe7712]",
         "Weight": 0.7
     },
@@ -22,17 +22,17 @@
     "controlnet_2": {
         "enabled": true,
         "scribble_mode": false,
-        "annotator_resolution": 832,
+        "annotator_resolution": 512,
         "canvas_width": 512,
         "canvas_height": 768,
-        "Preprocessor": "normal_map",
+        "Preprocessor": "normal_map_N",
         "Model": "control_normal-fp16 [63f96f7c]",
         "Weight": 0.5
     },
     "controlnet_3": {
         "enabled": true,
         "scribble_mode": false,
-        "annotator_resolution": 832,
+        "annotator_resolution": 512,
         "canvas_width": 512,
         "canvas_height": 768,
         "Preprocessor": "segmentation",

@@ -176,11 +176,13 @@ class Script(scripts.Script):
         self.preprocessor = {
             "none": lambda x, *args, **kwargs: (x, True),
             "canny": canny,
+            "canny_N": canny_N,
             "depth": midas,
             "depth_leres": leres,
             "hed": hed,
             "mlsd": mlsd,
             "normal_map": midas_normal,
+            "normal_map_N": midas_normal_N,
             "openpose": openpose,
             "openpose_hand": openpose_hand,
             "clip_vision": clip,
@@ -199,6 +201,7 @@ class Script(scripts.Script):
             "depth": unload_midas,
             "depth_leres": unload_leres,
             "normal_map": unload_midas,
+            "normal_map_N": unload_midas_N,
             "pidinet": unload_pidinet,
             "openpose": unload_openpose,
             "openpose_hand": unload_openpose,
@@ -321,6 +324,13 @@ class Script(scripts.Script):
                     gr.update(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1, interactive=True),
                     gr.update(visible=True)
                 ]
+            elif module == "canny_N":
+                return [
+                    gr.update(label="Annotator resolution", value=ctrl_opts["annotator_resolution"], minimum=64, maximum=2048, step=1, interactive=True),
+                    gr.update(label="Canny low threshold", minimum=1, maximum=255, value=100, step=1, interactive=True),
+                    gr.update(label="Canny high threshold", minimum=1, maximum=255, value=200, step=1, interactive=True),
+                    gr.update(visible=True)
+                ]
             elif module == "mlsd":  # Hough
                 return [
                     gr.update(label="Hough Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
@@ -357,6 +367,13 @@ class Script(scripts.Script):
                     gr.update(visible=True)
                 ]
             elif module == "normal_map":
+                return [
+                    gr.update(label="Normal Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
+                    gr.update(label="Normal background threshold", minimum=0.0, maximum=1.0, value=0.4, step=0.01, interactive=True),
+                    gr.update(label="Threshold B", value=64, minimum=64, maximum=1024, interactive=False),
+                    gr.update(visible=True)
+                ]
+            elif module == "normal_map_N":
                 return [
                     gr.update(label="Normal Resolution", minimum=64, maximum=2048, value=512, step=1, interactive=True),
                     gr.update(label="Normal background threshold", minimum=0.0, maximum=1.0, value=0.4, step=0.01, interactive=True),
@@ -617,7 +634,7 @@ class Script(scripts.Script):
 
     def detectmap_proc(self, detected_map, module, rgbbgr_mode, resize_mode, h, w):
         detected_map = HWC3(detected_map)
-        if module == "normal_map" or rgbbgr_mode:
+        if module == "normal_map" or module == "normal_map_N" or rgbbgr_mode:
             control = torch.from_numpy(detected_map[:, :, ::-1].copy()).float().to(devices.get_device_for("controlnet")) / 255.0
         else:
             control = torch.from_numpy(detected_map.copy()).float().to(devices.get_device_for("controlnet")) / 255.0
@@ -801,7 +818,7 @@ class Script(scripts.Script):
 
         if hasattr(self, "detected_map") and self.detected_map is not None:
             for detect_map, module in self.detected_map:
-                if module in ["canny", "mlsd", "scribble", "fake_scribble", "pidinet", "binary"]:
+                if module in ["canny", "canny_N", "mlsd", "scribble", "fake_scribble", "pidinet", "binary"]:
                     detect_map = 255 - detect_map
                 processed.images.extend([Image.fromarray(detect_map)])
 

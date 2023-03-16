@@ -5,6 +5,8 @@ import copy
 import contextlib
 import pydantic
 import sys
+import os
+import cv2
 
 import gradio as gr
 
@@ -278,7 +280,7 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                      controlnet_threshold_a: float = Body(64, title='Controlnet Threshold a'),
                      controlnet_threshold_b: float = Body(64, title='Controlnet Threshold b')):
 
-        available_modules = ["canny", "depth", "depth_leres", "fake_scribble", "hed", "mlsd", "normal_map", "openpose", "segmentation", "binary", "color"]
+        available_modules = ["canny", "canny_N", "depth", "depth_leres", "fake_scribble", "hed", "mlsd", "normal_map", "normal_map_N", "openpose", "segmentation", "binary", "color"]
 
         if controlnet_module not in available_modules:
             return {"images": [], "info": "Module not available"}
@@ -294,6 +296,11 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
 
             if controlnet_module == "canny":
                 results.append(canny(img, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
+            elif controlnet_module == "canny_N":
+                filename = os.listdir("/data/dengzhijian/webui/outputs/a2").sort()
+                if filename != []:
+                    img_N = cv2.imread(filename[-1])
+                    results.append(canny_N(img_N, controlnet_processor_res, controlnet_threshold_a, controlnet_threshold_b)[0])
             elif controlnet_module == "hed":
                 results.append(hed(img, controlnet_processor_res)[0])
             elif controlnet_module == "mlsd":
@@ -302,6 +309,11 @@ def controlnet_api(_: gr.Blocks, app: FastAPI):
                 results.append(midas(img, controlnet_processor_res, np.pi * 2.0)[0])
             elif controlnet_module == "normal_map":
                 results.append(midas_normal(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a)[0])
+            elif controlnet_module == "normal_map_N":
+                filename = os.listdir("/data/dengzhijian/webui/outputs/a2").sort()
+                if filename != []:
+                    img_N = cv2.imread(filename[-1])
+                    results.append(midas_normal_N(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a)[0])
             elif controlnet_module == "depth_leres":
                 results.append(leres(img, controlnet_processor_res, np.pi * 2.0, controlnet_threshold_a, controlnet_threshold_b)[0])
             elif controlnet_module == "openpose":
